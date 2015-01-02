@@ -12,12 +12,7 @@
 
 using namespace std;
 
-string login_url;
-string json_gateway;
-string websocket_gateway;
-string string_urlSuffix;
-
-string blob;
+static bool _debug = false;
 
 size_t data_ignore(void */*buffer*/, size_t size, size_t nmemb, void* /*userp*/) {
 	return size*nmemb;
@@ -72,11 +67,12 @@ string get_value(const char* key, const string& data) {
 	return data.substr(start_index, end_index-start_index).c_str();
 
 error_out:
+	if (_debug)
 		fprintf(stderr, "Error finding; %s\n", key);
 	return "";
 }
 
-void extract_html_metadata(struct video_meta& meta, const string& page) {
+bool extract_html_metadata(struct video_meta& meta, const string& page) {
 	meta.resource = get_value("data-resource", page);
 	meta.image = get_value("data-image", page);
 
@@ -89,6 +85,11 @@ void extract_html_metadata(struct video_meta& meta, const string& page) {
 	meta.duration_ms         = get_value("data-duration-in-milliseconds", page);
 	meta.production_number   = get_value("data-production-number", page);
 	meta.popup               = get_value("data-popup", page);
+
+	if (meta.resource.empty())
+		return false;
+
+	return true;
 }
 
 void extract_json_metadata(struct video_meta& meta, const string& page) {
@@ -116,8 +117,10 @@ void extract_json_metadata(struct video_meta& meta, const string& page) {
 		if (json_object_object_get_ex(value, "Uri", &uri_obj)) {
 			const char* str_target = json_object_get_string(target_obj);
 			const char* str_uri    = json_object_get_string(uri_obj);
-// 			printf("Target: %s\n", str_target);
-// 			printf("Uri: %s\n", str_uri);
+			if (_debug) {
+				printf("Target: %s\n", str_target);
+				printf("Uri: %s\n", str_uri);
+			}
 			meta.uri[str_target] = str_uri;
 		}
 	}
@@ -136,12 +139,15 @@ void extract_playlist(struct video_meta& meta, const string& page) {
 			int start_idx = line.find("=", idx+1)+1;
 			int end_idx = line.find(",", idx+1);
 			bandwidth = atoi( line.substr(start_idx, end_idx-start_idx).c_str() );
-// 			printf("LINE: %s\n", line.substr(start_idx, end_idx-start_idx).c_str());
+			if (_debug)
+				printf("Stream info: %s\n",line.c_str());
 			continue;
 		}
 
-		if (bandwidth != 0)
+		if (bandwidth != 0) {
+			printf("Playlist for bandwidth %d: %s\n", bandwidth, line.c_str());
 			meta.playlists[bandwidth] = line;
+		}
 		bandwidth = 0;
 	}
 }
@@ -214,7 +220,10 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
 
 	struct video_meta meta;
-	extract_html_metadata(meta, pagedata);
+	if (!extract_html_metadata(meta, pagedata)) {
+		fprintf(stderr,"No data resource available\n");
+		return EXIT_FAILURE;
+	}
 
 	pagedata = "";
  	printf("Getting data from %s\n", meta.resource.c_str());

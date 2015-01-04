@@ -145,7 +145,8 @@ void extract_playlist(struct video_meta& meta, const string& page) {
 		}
 
 		if (bandwidth != 0) {
-			printf("Playlist for bandwidth %d: %s\n", bandwidth, line.c_str());
+			if (_debug)
+				printf("Playlist for bandwidth %d: %s\n", bandwidth, line.c_str());
 			meta.playlists[bandwidth] = line;
 		}
 		bandwidth = 0;

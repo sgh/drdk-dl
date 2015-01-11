@@ -190,6 +190,8 @@ void fetch_video(struct video_meta& meta, const string& playlist) {
 	fclose(targetfile);
 
 	curl_easy_cleanup(curl);
+	printf("\n");
+
 }
 
 

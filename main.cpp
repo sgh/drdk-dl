@@ -215,6 +215,7 @@ int main(int argc, char *argv[])
 
 	// General settings
 	curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+	curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, FALSE);
 
 	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, get_data);
 	curl_easy_setopt(curl, CURLOPT_URL, argv[1]);

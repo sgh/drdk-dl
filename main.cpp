@@ -184,10 +184,14 @@ void fetch_video(struct video_meta& meta, const string& playlist) {
 	istringstream stream(playlist);
 	while (getline(stream, line)) {
 		if (line[0] != '#') {
+			retry:
 			curl_easy_setopt(curl, CURLOPT_URL, line.c_str());
 			CURLcode res = curl_easy_perform(curl);
-			if(res != CURLE_OK)
+			if(res != CURLE_OK) {
 				fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+				fprintf(stderr, "retrying...");
+				goto retry;
+			}
 			printf("\r%lu KB ", ftell(targetfile)/1024);
 			fflush(stdout);
 		}

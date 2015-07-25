@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <map>
 #include <sstream>
+#include <sys/time.h>
 
 #include <json-c/json.h>
 
@@ -154,6 +155,30 @@ void extract_playlist(struct video_meta& meta, const string& page) {
 }
 
 
+/* this is how the CURLOPT_XFERINFOFUNCTION callback works */
+static int xferinfo(void *p, curl_off_t /*dltotal*/, curl_off_t /*dlnow*/, curl_off_t /*ultotal*/, curl_off_t /*ulnow*/)
+{
+	static timeval last_tv = {0, 0};
+	timeval tv;
+	timeval tv_diff;
+	FILE* targetfile = (FILE*)p;
+
+	gettimeofday(&tv, NULL);
+	timersub(&tv, &last_tv, &tv_diff);
+
+	unsigned int diff_ms = tv_diff.tv_sec*1000 + tv_diff.tv_usec/1000;
+	if (diff_ms >= 300)
+	{
+		printf("\r%lu KB", ftell(targetfile)/1024);
+		fflush(stdout);
+		last_tv = tv;
+	}
+
+	return 0;
+}
+
+
+
 void fetch_video(struct video_meta& meta, const string& playlist) {
 	string targetfilename = meta.program_name + ".mp4";
 	FILE* targetfile;
@@ -179,6 +204,9 @@ void fetch_video(struct video_meta& meta, const string& playlist) {
 	}
 
 	curl_easy_setopt(curl, CURLOPT_WRITEDATA, targetfile);
+	curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, xferinfo);
+	curl_easy_setopt(curl, CURLOPT_XFERINFODATA, targetfile);
+	curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
 
 	string line;
 	istringstream stream(playlist);
@@ -192,8 +220,6 @@ void fetch_video(struct video_meta& meta, const string& playlist) {
 				fprintf(stderr, "retrying...");
 				goto retry;
 			}
-			printf("\r%lu KB ", ftell(targetfile)/1024);
-			fflush(stdout);
 		}
 	}
 	fclose(targetfile);

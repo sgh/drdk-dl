@@ -190,7 +190,7 @@ void fetch_video(struct video_meta& meta, const string& playlist) {
 		return;
 
 	for (size_t idx=0; idx<targetfilename.size(); idx++) {
-		if (targetfilename[idx] == ':')
+		if (targetfilename[idx] == ':' || targetfilename[idx] == '/')
 			targetfilename[idx] = '-';
 	}
 

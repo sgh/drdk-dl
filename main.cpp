@@ -192,6 +192,8 @@ void fetch_video(struct video_meta& meta, const string& playlist) {
 	for (size_t idx=0; idx<targetfilename.size(); idx++) {
 		if (targetfilename[idx] == ':' || targetfilename[idx] == '/')
 			targetfilename[idx] = '-';
+		if (targetfilename[idx] == '?')
+			targetfilename.erase(idx, 1);
 	}
 
 	printf("Saving to file: %s\n", targetfilename.c_str());

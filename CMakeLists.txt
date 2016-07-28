@@ -1,7 +1,15 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.2)
 project( drdk-dl )
 
-set(CMAKE_BUILD_TYPE "Release")
+set(CMAKE_CXX_STANDARD 11)
+
+if(CMAKE_COMPILER_IS_GNUCXX)
+	set(CMAKE_CXX_FLAGS "-Wall -Wextra")
+endif()
+
+if (NOT CMAKE_BUILD_TYPE)
+	set(CMAKE_BUILD_TYPE "Release")
+endif()
 
 if (NOT WIN32)
 	find_package( PkgConfig )
@@ -12,6 +20,10 @@ endif()
 # I assume that libraries are in standard locations. This is just to make sure
 # the build bails out if the libraries are not found.
 
-link_libraries( curl json-c )
+file(GLOB_RECURSE ALL_HEADERS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.h *.hpp)
 
-add_executable( ${CMAKE_PROJECT_NAME} main.cpp )
+set(SOURCES main.cpp curl.cpp ${ALL_HEADERS})
+
+add_executable( drdk-dl ${SOURCES} )
+target_link_libraries(drdk-dl curl json-c )
+

@@ -9,40 +9,14 @@
 
 #include <json-c/json.h>
 
-#include <curl/curl.h>
+#include "drdk-dl.h"
+
+#include "http.h"
 
 using namespace std;
 
 static bool _debug = false;
 
-size_t data_ignore(void */*buffer*/, size_t size, size_t nmemb, void* /*userp*/) {
-	return size*nmemb;
-}
-
-string pagedata;
-
-size_t get_data(void* buffer, size_t size, size_t nmemb, void* /*userp*/) {
-// 	printf("%s\n", buffer);
-	pagedata.append((const char*)buffer, size*nmemb);
-	return size*nmemb;
-}
-
-
-struct video_meta {
-	string resource;
-	string image;
-	string program_name;
-	string broadcast_date;
-	string material_identifier;
-	string program_serie_slug;
-	string episode_slug;
-	string urn_id;
-	string duration_ms;
-	string production_number;
-	string popup;
-	map<string,string> uri;
-	map<unsigned int, string> playlists;
-};
 
 string get_value(const char* key, const string& data) {
 	int start_index;
@@ -155,39 +129,10 @@ void extract_playlist(struct video_meta& meta, const string& page) {
 }
 
 
-/* this is how the CURLOPT_XFERINFOFUNCTION callback works */
-static int xferinfo(void *p, curl_off_t /*dltotal*/, curl_off_t /*dlnow*/, curl_off_t /*ultotal*/, curl_off_t /*ulnow*/)
-{
-	static timeval last_tv = {0, 0};
-	timeval tv;
-	timeval tv_diff;
-	FILE* targetfile = (FILE*)p;
 
-	gettimeofday(&tv, NULL);
-	timersub(&tv, &last_tv, &tv_diff);
-
-	unsigned int diff_ms = tv_diff.tv_sec*1000 + tv_diff.tv_usec/1000;
-	if (diff_ms >= 300)
-	{
-		printf("\r%lu KB", ftell(targetfile)/1024);
-		fflush(stdout);
-		last_tv = tv;
-	}
-
-	return 0;
-}
-
-
-
-void fetch_video(struct video_meta& meta, const string& playlist) {
+void fetch_video(IHttp* http, struct video_meta& meta, const string& playlist) {
 	string targetfilename = meta.program_name + ".mp4";
 	FILE* targetfile;
-	CURL *curl;
-
-	curl = curl_easy_init();
-
-	if(!curl)
-		return;
 
 	for (size_t idx=0; idx<targetfilename.size(); idx++) {
 		if (targetfilename[idx] == ':' || targetfilename[idx] == '/')
@@ -205,28 +150,16 @@ void fetch_video(struct video_meta& meta, const string& playlist) {
 		return;
 	}
 
-	curl_easy_setopt(curl, CURLOPT_WRITEDATA, targetfile);
-	curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, xferinfo);
-	curl_easy_setopt(curl, CURLOPT_XFERINFODATA, targetfile);
-	curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
-
 	string line;
 	istringstream stream(playlist);
 	while (getline(stream, line)) {
 		if (line[0] != '#') {
 			retry:
-			curl_easy_setopt(curl, CURLOPT_URL, line.c_str());
-			CURLcode res = curl_easy_perform(curl);
-			if(res != CURLE_OK) {
-				fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
-				fprintf(stderr, "retrying...");
-				goto retry;
-			}
+			http->getToFile(line, targetfile, [](unsigned int kb) { printf("\r%lu KB", kb); fflush(stdout); });
 		}
 	}
 	fclose(targetfile);
 
-	curl_easy_cleanup(curl);
 	printf("\n");
 
 }
@@ -234,31 +167,13 @@ void fetch_video(struct video_meta& meta, const string& playlist) {
 
 int main(int argc, char *argv[])
 {
-	CURL *curl;
-	CURLcode res;
-
-
 	if (argc < 2) {
 		fprintf(stderr, "Usage: drtv-dl <url>");
 		return EXIT_FAILURE;
 	}
 
-	curl_global_init(CURL_GLOBAL_ALL);
-
-	curl = curl_easy_init();
-
-	if(!curl)
-		return 0;
-
-	// General settings
-	curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-	curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, FALSE);
-
-	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, get_data);
-	curl_easy_setopt(curl, CURLOPT_URL, argv[1]);
-	res = curl_easy_perform(curl);
-	if(res != CURLE_OK)
-		fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+	auto http = createHttp();
+	auto pagedata = http->get(argv[1]);
 
 	struct video_meta meta;
 	if (!extract_html_metadata(meta, pagedata)) {
@@ -266,22 +181,13 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	pagedata = "";
  	printf("Getting data from %s\n", meta.resource.c_str());
-	curl_easy_setopt(curl, CURLOPT_URL, meta.resource.c_str());
-	res = curl_easy_perform(curl);
-	if(res != CURLE_OK)
-		fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+	pagedata = http->get(meta.resource);
 	extract_json_metadata(meta, pagedata);
 
 
 	printf("Getting list of playlists\n");
-	pagedata = "";
-	curl_easy_setopt(curl, CURLOPT_URL, meta.uri["HLS"].c_str());
-	res = curl_easy_perform(curl);
-	if(res != CURLE_OK)
-		fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
-
+	pagedata = http->get(meta.uri["HLS"]);
 
 	extract_playlist(meta, pagedata);
 	if (meta.playlists.empty()) {
@@ -293,13 +199,9 @@ int main(int argc, char *argv[])
 	string playlist_uri = it->second;
 	printf("Using bandwidth=%d\n", it->first);
 
-	pagedata = "";
-	curl_easy_setopt(curl, CURLOPT_URL, playlist_uri.c_str());
-	res = curl_easy_perform(curl);
-	if(res != CURLE_OK)
-		fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+	pagedata = http->get(playlist_uri.c_str());
 
-	fetch_video(meta, pagedata);
+	fetch_video(http.get(), meta, pagedata);
 
 	return 0;
 }

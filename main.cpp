@@ -7,12 +7,14 @@
 #include <sstream>
 #include <sys/time.h>
 
-#include <json-c/json.h>
-
 #include "drdk-dl.h"
 
 #include "http.h"
+#include "json.h"
 
+#ifdef __WIN32
+	#include <QCoreApplication>
+#endif
 using namespace std;
 
 static bool _debug = false;
@@ -65,40 +67,6 @@ bool extract_html_metadata(struct video_meta& meta, const string& page) {
 		return false;
 
 	return true;
-}
-
-void extract_json_metadata(struct video_meta& meta, const string& page) {
-	json_object *new_obj;
-	json_object *links_obj;
-	new_obj = json_tokener_parse( page.c_str() );
-
-// 	printf("%s\n", pagedata.c_str());
-
-	if (!json_object_object_get_ex(new_obj, "Links", &links_obj)) {
-		fprintf(stderr, "Error getting links\n");
-		return;
-	}
-
-	int nr_links = json_object_array_length(links_obj);
-// 	printf("%d links\n", nr_links);
-	for (int idx=0; idx<nr_links; idx++) {
-		json_object* value = json_object_array_get_idx(links_obj, idx);
-
-		json_object* target_obj;
-		if (!json_object_object_get_ex(value, "Target", &target_obj))
-			continue;
-
-		json_object* uri_obj;
-		if (json_object_object_get_ex(value, "Uri", &uri_obj)) {
-			const char* str_target = json_object_get_string(target_obj);
-			const char* str_uri    = json_object_get_string(uri_obj);
-			if (_debug) {
-				printf("Target: %s\n", str_target);
-				printf("Uri: %s\n", str_uri);
-			}
-			meta.uri[str_target] = str_uri;
-		}
-	}
 }
 
 
@@ -167,6 +135,9 @@ void fetch_video(IHttp* http, struct video_meta& meta, const string& playlist) {
 
 int main(int argc, char *argv[])
 {
+#ifdef __WIN32
+	QCoreApplication app(argc, argv);
+#endif
 	if (argc < 2) {
 		fprintf(stderr, "Usage: drtv-dl <url>");
 		return EXIT_FAILURE;
@@ -183,7 +154,7 @@ int main(int argc, char *argv[])
 
  	printf("Getting data from %s\n", meta.resource.c_str());
 	pagedata = http->get(meta.resource);
-	extract_json_metadata(meta, pagedata);
+	extract_targets(meta, pagedata);
 
 
 	printf("Getting list of playlists\n");

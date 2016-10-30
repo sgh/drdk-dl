@@ -122,8 +122,7 @@ void fetch_video(IHttp* http, struct video_meta& meta, const string& playlist) {
 	istringstream stream(playlist);
 	while (getline(stream, line)) {
 		if (line[0] != '#') {
-			retry:
-			http->getToFile(line, targetfile, [](unsigned int kb) { printf("\r%lu KB", kb); fflush(stdout); });
+			http->getToFile(line, targetfile, [](unsigned int kb) { printf("\r%u KB", kb); fflush(stdout); });
 		}
 	}
 	fclose(targetfile);

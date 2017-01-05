@@ -99,7 +99,7 @@ void extract_playlist(struct video_meta& meta, const string& page) {
 
 
 void fetch_video(IHttp* http, struct video_meta& meta, const string& playlist) {
-	string targetfilename = meta.program_name + ".mp4";
+	string targetfilename = meta.program_name + ".m4v";
 	FILE* targetfile;
 
 	for (size_t idx=0; idx<targetfilename.size(); idx++) {

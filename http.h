@@ -1,6 +1,7 @@
 #pragma once
 #include <memory>
 #include <string>
+#include <functional>
 
 struct IHttp {
 	virtual std::string get(std::string url) = 0;

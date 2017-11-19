@@ -75,6 +75,8 @@ void extract_playlist(struct video_meta& meta, const string& page) {
 	string line;
 	istringstream stream(page);
 	while (getline(stream, line)) {
+		if (_debug)
+			printf("Line: %s\n", line.c_str());
 		if (line.find("#EXT-X-STREAM-INF:") != string::npos) {
 			size_t idx = line.find("BANDWIDTH");
 			if (idx == string::npos)
@@ -122,6 +124,8 @@ void fetch_video(IHttp* http, struct video_meta& meta, const string& playlist) {
 	istringstream stream(playlist);
 	while (getline(stream, line)) {
 		if (line[0] != '#') {
+			if (_debug)
+				printf("URL: %s\n", line.c_str());
 			http->getToFile(line, targetfile, [](unsigned int kb) { printf("\r%u KB", kb); fflush(stdout); });
 		}
 	}

@@ -89,6 +89,18 @@ void extract_playlist(struct video_meta& meta, const string& page) {
 			continue;
 		}
 
+		if (line.find("EXT-X-MEDIA:TYPE=SUBTITLES") != string::npos) {
+			size_t start_idx = line.find("URI=\"");
+			if (start_idx == string::npos)
+				continue;
+			start_idx += 5;
+			int end_idx = line.find("\"", start_idx);
+			meta.subtitle_uri = line.substr(start_idx, end_idx-start_idx).c_str();
+			if (_debug)
+				printf("Subtitle: %s\n",meta.subtitle_uri.c_str());
+			continue;
+		}
+
 		if (bandwidth != 0) {
 			if (_debug)
 				printf("Playlist for bandwidth %d: %s\n", bandwidth, line.c_str());
@@ -99,9 +111,13 @@ void extract_playlist(struct video_meta& meta, const string& page) {
 }
 
 
+void trim(std::string& s) {
+	while (s.size() > 0 && s[s.size()-1] == '\r')
+		s.resize(s.size()-1);
+}
 
-void fetch_video(IHttp* http, struct video_meta& meta, const string& playlist) {
-	string targetfilename = meta.program_name + ".m4v";
+void fetch_video(IHttp* http, struct video_meta& meta, const string& playlist, const std::string& extension) {
+	string targetfilename = meta.program_name + extension;
 	FILE* targetfile;
 
 	for (size_t idx=0; idx<targetfilename.size(); idx++) {
@@ -123,6 +139,7 @@ void fetch_video(IHttp* http, struct video_meta& meta, const string& playlist) {
 	string line;
 	istringstream stream(playlist);
 	while (getline(stream, line)) {
+		trim(line);
 		if (line[0] != '#') {
 			if (_debug)
 				printf("URL: %s\n", line.c_str());
@@ -173,9 +190,16 @@ int main(int argc, char *argv[])
 	string playlist_uri = it->second;
 	printf("Using bandwidth=%d\n", it->first);
 
-	pagedata = http->get(playlist_uri.c_str());
+	// Subtitles
+	if (!meta.subtitle_uri.empty()) {
+		pagedata = http->get(meta.subtitle_uri.c_str());
+		fetch_video(http.get(), meta, pagedata, ".sub");
+	}
 
-	fetch_video(http.get(), meta, pagedata);
+	// Video
+	pagedata = http->get(playlist_uri.c_str());
+	fetch_video(http.get(), meta, pagedata, ".m4v");
+
 
 	return 0;
 }

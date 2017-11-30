@@ -15,5 +15,6 @@ struct video_meta {
 	std::string production_number;
 	std::string popup;
 	std::map<std::string,std::string> uri;
+	std::string subtitle_uri;
 	std::map<unsigned int, std::string> playlists;
 };

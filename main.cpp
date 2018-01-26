@@ -95,9 +95,18 @@ void extract_playlist(struct video_meta& meta, const string& page) {
 				continue;
 			start_idx += 5;
 			int end_idx = line.find("\"", start_idx);
-			meta.subtitle_uri = line.substr(start_idx, end_idx-start_idx).c_str();
-			if (_debug)
-				printf("Subtitle: %s\n",meta.subtitle_uri.c_str());
+			std::string uri = line.substr(start_idx, end_idx-start_idx).c_str();
+			const char* subtype_key = "subtitleType=";
+			auto subtype_idx = uri.find(subtype_key);
+			if (subtype_idx != std::string::npos) {
+				auto end_pos = uri.find('&', subtype_idx);
+				subtype_idx += strlen(subtype_key);
+				auto type = uri.substr(subtype_idx, end_pos);
+//				printf("SubtitleType=%s\n", s.c_str());
+				meta.subtitle_uri[type] = uri;
+				if (_debug)
+					printf("Subtitle: [%s] %s\n", type.c_str(), uri.c_str());
+			}
 			continue;
 		}
 
@@ -192,8 +201,11 @@ int main(int argc, char *argv[])
 
 	// Subtitles
 	if (!meta.subtitle_uri.empty()) {
-		pagedata = http->get(meta.subtitle_uri.c_str());
-		fetch_video(http.get(), meta, pagedata, ".sub");
+		auto uri = meta.subtitle_uri["Foreign"];
+		if (uri != "") {
+			pagedata = http->get(uri.c_str());
+			fetch_video(http.get(), meta, pagedata, ".sub");
+		}
 	}
 
 	// Video

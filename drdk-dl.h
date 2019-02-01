@@ -18,3 +18,5 @@ struct video_meta {
 	std::map<std::string, std::string> subtitle_uri;
 	std::map<unsigned int, std::string> playlists;
 };
+
+std::string decrypt_uri(const std::string& encrypted_uri);

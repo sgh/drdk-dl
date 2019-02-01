@@ -13,15 +13,19 @@ endif()
 
 set(SOURCES main.cpp)
 
+set(USE_QT FALSE)
+if (WIN32)
+	set(USE_QT TRUE)
+endif()
 
-if (NOT WIN32)
+if (NOT USE_QT)
 	find_package( PkgConfig )
 	pkg_check_modules(PC_LIBJSONC REQUIRED json-c)
 	pkg_check_modules(PC_LIBCURL REQUIRED libcurl)
 	list(APPEND SOURCES curl.cpp json-c.cpp)
 endif()
 
-if (WIN32)
+if (USE_QT)
 	list(APPEND SOURCES qt.cpp)
 endif()
 
@@ -34,10 +38,10 @@ file(GLOB_RECURSE ALL_HEADERS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.h *.hpp)
 add_executable( drdk-dl ${SOURCES} ${ALL_HEADERS})
 
 if (NOT WIN32)
-	target_link_libraries(drdk-dl curl json-c )
+	target_link_libraries(drdk-dl curl json-c crypto)
 endif()
 
-if (WIN32)
+if (USE_QT)
 	find_package(Qt5Core REQUIRED)
 	find_package(Qt5Network REQUIRED)
 	target_link_libraries(drdk-dl Qt5::Core Qt5::Network)

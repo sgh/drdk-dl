@@ -4,6 +4,13 @@
 
 #include <json-c/json.h>
 
+
+#include <stdio.h>
+#include <string>
+// #include <string.h>
+
+
+
 void extract_targets(struct video_meta& meta, const std::string& page) {
 	json_object *new_obj;
 	json_object *links_obj;
@@ -24,11 +31,22 @@ void extract_targets(struct video_meta& meta, const std::string& page) {
 			continue;
 
 		json_object* uri_obj;
-		if (json_object_object_get_ex(value, "Uri", &uri_obj)) {
-			const char* str_target = json_object_get_string(target_obj);
-			const char* str_uri    = json_object_get_string(uri_obj);
-			meta.uri[str_target] = str_uri;
+		const char* str_target = json_object_get_string(target_obj);
+		std::string target_uri;
+		if (target_uri.empty() && json_object_object_get_ex(value, "Uri", &uri_obj)) {
+			auto ptr = json_object_get_string(uri_obj);
+		    target_uri = ptr ? ptr : "";
 		}
+
+		if (target_uri.empty() && json_object_object_get_ex(value, "EncryptedUri", &uri_obj)) {
+			auto ptr = json_object_get_string(uri_obj);
+		    target_uri = ptr ? decrypt_uri(ptr) : "";
+		}
+
+		printf("Target: %s\n", str_target);
+		printf("  Uri: %s\n", target_uri.c_str());
+		if (!target_uri	.empty())
+			meta.uri[str_target] =  target_uri;
 	}
 }
 

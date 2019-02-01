@@ -6,11 +6,15 @@
 #include <map>
 #include <sstream>
 #include <sys/time.h>
+#include <assert.h>
 
 #include "drdk-dl.h"
 
 #include "http.h"
 #include "json.h"
+#include <openssl/sha.h>
+#include <openssl/aes.h>
+
 
 #ifdef __WIN32
 	#include <QCoreApplication>
@@ -18,6 +22,68 @@
 using namespace std;
 
 static bool _debug = false;
+
+
+static unsigned char hex2int(char c) {
+	if (c >= '0' && c <= '9') return c - '0';
+	if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+	if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+	return -1;
+}
+
+static void hex2bin(unsigned char* dst, const char* src, unsigned int len) {
+	assert((len & 1) == 0);
+	while (len>0) {
+		*dst = hex2int(src[0])*16 + hex2int(src[1]);
+		dst++;
+		src += 2;
+		len -= 2;
+	}
+}
+
+std::string decrypt_uri(const std::string& encrypted_uri) {
+	unsigned int n = 0;
+	for (auto idx=0; idx<8; idx++) {
+		n <<= 4;
+		n += hex2int(encrypted_uri[idx + 2]);
+	}
+
+// 	printf("n: %d\n", n);
+
+	auto a = &encrypted_uri[10 + n];
+// 	printf("a: %s\n", a);
+
+
+	char key_tmp[128];
+	sprintf(key_tmp, "%s:sRBzYNXBzkKgnjj8pGtkACch", a);
+
+	unsigned char digest[SHA256_DIGEST_LENGTH];
+	SHA256_CTX shactx;
+	SHA256_Init(&shactx);
+	SHA256_Update(&shactx, key_tmp, strlen(key_tmp));
+	SHA256_Final(digest, &shactx);
+
+	unsigned char iv[128];
+	hex2bin(iv, a, strlen(a));
+
+	auto cipertext = (unsigned char*)malloc(encrypted_uri.size());
+	hex2bin(cipertext, &encrypted_uri[10], n);
+
+	std::string plaintext;
+	plaintext.resize(n/2);
+
+	AES_KEY aes_key;
+	AES_set_decrypt_key(digest, 256, &aes_key);
+	AES_cbc_encrypt(cipertext, (unsigned char*)&plaintext[0], plaintext.size(), &aes_key, iv, 0);
+
+	free(cipertext);
+
+	auto pos = plaintext.find('?');
+	if (pos != std::string::npos)
+		plaintext.resize(pos);
+
+	return plaintext;
+}
 
 
 string get_value(const char* key, const string& data) {
@@ -183,7 +249,11 @@ int main(int argc, char *argv[])
 
  	printf("Getting data from %s\n", meta.resource.c_str());
 	pagedata = http->get(meta.resource);
+
+	if (_debug)
+		printf("Extracting targets: \n%s\n", pagedata.c_str());
 	extract_targets(meta, pagedata);
+
 
 
 	printf("Getting list of playlists\n");

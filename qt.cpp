@@ -46,8 +46,10 @@ void extract_targets(struct video_meta& meta, const std::string& page) {
 	auto links = doc.object()["Links"].toArray();
 	foreach (QJsonValue v, links) {
 		auto target = v.toObject()["Target"].toString();
-		auto url = v.toObject()["Uri"].toString();
-		meta.uri[target.toStdString()] = url.toStdString();
+		auto url = v.toObject()["Uri"].toString().toStdString();
+		if (url.length() == 0)
+			url = decrypt_uri(v.toObject()["EncryptedUri"].toString().toStdString());
+		meta.uri[target.toStdString()] = url;
 	}
 }
 

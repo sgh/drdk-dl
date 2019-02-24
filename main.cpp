@@ -168,7 +168,7 @@ void extract_playlist(struct video_meta& meta, const string& page) {
 				auto end_pos = uri.find('&', subtype_idx);
 				subtype_idx += strlen(subtype_key);
 				auto type = uri.substr(subtype_idx, end_pos);
-//				printf("SubtitleType=%s\n", s.c_str());
+//				printf("SubtitleType=%s\n", type.c_str());
 				meta.subtitle_uri[type] = uri;
 				if (_debug)
 					printf("Subtitle: [%s] %s\n", type.c_str(), uri.c_str());
@@ -273,8 +273,13 @@ int main(int argc, char *argv[])
 	if (!meta.subtitle_uri.empty()) {
 		auto uri = meta.subtitle_uri["Foreign"];
 		if (uri != "") {
+#if 0
+			// Oldstyle 1 indirection subtitles
 			pagedata = http->get(uri.c_str());
 			fetch_video(http.get(), meta, pagedata, ".sub");
+#else
+			fetch_video(http.get(), meta, uri, ".sub");
+#endif
 		}
 	}
 

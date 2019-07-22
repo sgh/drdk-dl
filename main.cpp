@@ -257,6 +257,10 @@ int main(int argc, char *argv[])
 
 
 	printf("Getting list of playlists\n");
+	// HLS - Apple HTTP Live Streaming.
+	// HDS - Adobe HTTP Dynamic Streaming.
+	//
+	// Only HLS works for now.
 	pagedata = http->get(meta.uri["HLS"]);
 
 	extract_playlist(meta, pagedata);

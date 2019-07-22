@@ -58,6 +58,7 @@ void extract_targets(struct video_meta& meta, const std::string& page) {
 
 		json_object* uri_obj;
 		std::string target_uri;
+		bool decrypted = false;
 		if (target_uri.empty() && json_object_object_get_ex(value, "Uri", &uri_obj)) {
 			auto ptr = json_object_get_string(uri_obj);
 		    target_uri = ptr ? ptr : "";
@@ -66,10 +67,11 @@ void extract_targets(struct video_meta& meta, const std::string& page) {
 		if (target_uri.empty() && json_object_object_get_ex(value, "EncryptedUri", &uri_obj)) {
 			auto ptr = json_object_get_string(uri_obj);
 		    target_uri = ptr ? decrypt_uri(ptr) : "";
+			decrypted = true;
 		}
 
 		const char* str_target = json_object_get_string(target_obj);
-		printf("Target: %s\n", str_target);
+		printf("Target%s: %s\n", decrypted ? "(decrypted]" : "", str_target);
 		printf("  Uri: %s\n", target_uri.c_str());
 		if (!target_uri	.empty())
 			meta.uri[str_target] =  target_uri;
